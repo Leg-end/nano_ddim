@@ -1,0 +1,6 @@
+python main.py --config oxflower.yml --doc oxflower --comment debug_sampling --debug --sample --once --sample_num 1 --timesteps 20
+python main.py --config oxflower.yml --doc oxflower --comment baseline --test --timesteps 20
+python main.py --config oxflower.yml --doc oxflower --comment baseline --plot_epoch 3 --sample_num 4 --timesteps 20
+python main.py --config oxflower.yml --doc oxflower --comment baseline --sample --sequence --sample_num 2 --timesteps 20 --image_folder ema_sequence_20
+python main.py --config oxflower.yml --doc oxflower --comment baseline --sample --once --sample_num 8 --timesteps 50 --image_folder ema_once_50
+python main.py --config oxflower.yml --doc oxflower --comment baseline --sample --once --sample_num 8 --timesteps 1000 --eta 1.0 --image_folder ema_DDPM

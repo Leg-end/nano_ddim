@@ -1,0 +1,61 @@
+data:
+    dataset: "Flowers102"
+    image_size: 64
+    mean: [0.4749, 0.3950, 0.3083]
+    std: [0.2892, 0.2368, 0.2682] 
+    channels: 3
+    logit_transform: false
+    uniform_dequantization: false
+    gaussian_dequantization: false
+    normalize: true
+    random_flip: true
+    rescaled: false
+    num_workers: 4
+
+model:
+    type: "simple"
+    in_channels: 3
+    out_ch: 3
+    ch: 32
+    ch_mult: [1, 2, 2, 2]
+    num_res_blocks: 2
+    attn_resolutions: []
+    dropout: 0.0
+    var_type: fixedlarge
+    ema_rate: 0.999
+    ema: False
+    resamp_with_conv: False
+    use_bn: True
+    use_attn: False
+    input_emb_once: True
+    emb_type: "noise"
+
+diffusion:
+    beta_schedule: cosine
+    beta_start: 0.0001
+    beta_end: 0.02
+    alpha_bar_start: 0.02
+    alpha_bar_end: 0.95
+    num_diffusion_timesteps: 1000
+
+training:
+    loss_type: mae
+    batch_size: 64
+    n_epochs: 50
+    n_iters: 5000000
+    snapshot_freq: 3000
+    validation_freq: 2000
+    save_last: true
+
+sampling:
+    batch_size: 32
+    last_only: True
+
+optim:
+    weight_decay: 0.0001
+    optimizer: "Adam"
+    lr: 0.001
+    beta1: 0.9
+    amsgrad: false
+    eps: 0.00000001
+    grad_clip: 1.0
