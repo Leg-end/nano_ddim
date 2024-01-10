@@ -21,16 +21,16 @@ normalization without affine transformation, also, positional embedding only inp
 BGANO stands for baseline_gn_affine_norm_out, i.e. model structure with same setting as BBNO but using learnable group normalization
 
 generated results including middle outputs by DDIM sampling from time step 1 to 20
-![image](https://github.com/Leg-end/nano_ddim/nano_ddim/asset/图片1.png)
+![image](https://github.com/Leg-end/nano_ddim/blob/main/nano_ddim/asset/%E5%9B%BE%E7%89%871.png)
 
 generated results by DDIM sampling after 50 timestep
-![image](https://github.com/Leg-end/nano_ddim/nano_ddim/asset/图片2.png)
+![image](https://github.com/Leg-end/nano_ddim/blob/main/nano_ddim/asset/%E5%9B%BE%E7%89%872.png)
 
 generated results by DDIM sampling after 100 timestep
-![image](https://github.com/Leg-end/nano_ddim/nano_ddim/asset/图片3.png)
+![image](https://github.com/Leg-end/nano_ddim/blob/main/nano_ddim/asset/%E5%9B%BE%E7%89%873.png)
 
 generated results by DDPM sampling after 1000 timestep
-![image](https://github.com/Leg-end/nano_ddim/nano_ddim/asset/图片4.png)
+![image](https://github.com/Leg-end/nano_ddim/blob/main/nano_ddim/asset/%E5%9B%BE%E7%89%874.png)
 
 It would be greateful if anyone could help with this project, or any suggection for my potential code or experimental fault.
-P.S. I also upload a [experimental report](https://github.com/Leg-end/nano_ddim/nano_ddim/asset/report.docx) from which more detail is available.
+P.S. I also upload a [experimental report](https://github.com/Leg-end/nano_ddim/blob/main/nano_ddim/asset/) from which more detail is available.
