@@ -1,12 +1,12 @@
 ## Introduction
-This is a experimental code adpated from offical DDIM[#https://github.com/ermongroup/ddim], whose aim at replicating the simplified
-version introduced from keras[#https://github.com/keras-team/keras-io/blob/master/examples/generative/ddim.py] 
-and following the experiment mentioned on MINI DDIM[#https://stackoverflow.com/questions/76590848/minimal-diffusion-model-ddim-for-mnist] of Stack Overflow.
+This is a experimental code adpated from offical [DDIM](https://github.com/ermongroup/ddim), whose aim at replicating the simplified
+version introduced from [keras](https://github.com/keras-team/keras-io/blob/master/examples/generative/ddim.py) 
+and following the experiment mentioned on [MINI DDIM](https://stackoverflow.com/questions/76590848/minimal-diffusion-model-ddim-for-mnist) of Stack Overflow.
 
 ## Motivation
 My inital training using keras' offical code generated bad results which can be seen in the ISSUE I pulled at .
 To find out what is going wrong, I decided to transfer the same experimental setting from keras to pytorch.
-But results yied from my current works still far from the ideal one post on keras's blog[#https://keras.io/examples/generative/ddim/].
+But results yied from my current works still far from the ideal one post on [keras's blog](https://keras.io/examples/generative/ddim/).
 I am still working on it, trying my best to make it work as the offical did.
 
 ## Method
