@@ -25,10 +25,14 @@ def noise_estimation_loss(model,
         emb = t.float()
     b = torch.sqrt(1 - a).view(-1, 1, 1, 1)
     a = a.sqrt().view(-1, 1, 1, 1)
+    # xt = sqrt(alpha_bar_t) * x0 + sqrt(1 - alpha_bar_t) * e
     xt = x0 * a + e * b
+    # e_theta = model(xt, t)
     output = model(xt, emb)
+    # x0' = (xt - sqrt(1 - alpha_bar_t) * e_theta) / ssqrt(alpha_bar_t)
     pred_x0 = (xt - b * output) / a
     reduction = "mean" if not keepdim else "none"
+    # Lt = (|| e_theta - e ||_2)^2
     if loss_type == "mse":
         loss_fn = torch.nn.MSELoss(reduction=reduction)
     elif loss_type == "mae":

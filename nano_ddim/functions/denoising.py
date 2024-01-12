@@ -35,6 +35,9 @@ def generalized_steps(x, seq, model, a, **kwargs):
         n = x.size(0)
         x0_preds = []
         xs = [x]
+        # important line:
+        # at the first sampling step, the "noisy image" is pure noise
+        # but its signal rate is assumed to be nonzero (see min_signal_rate in cosine schedule)
         for i in reversed(range(1, len(seq)+1)):
             at = a[i] * torch.ones(n).to(x.device)
             at_next = a[i - 1] * torch.ones(n, 1, 1, 1).to(x.device)
@@ -45,13 +48,17 @@ def generalized_steps(x, seq, model, a, **kwargs):
             at = at.view(n, 1, 1, 1)
             xt = xs[-1].to('cuda')
             et = model(xt, emb)
+            # x0' = (x_{τ_i} - sqrt(1 - alpha_bar_{τ_i}) * e_theta) / sqrt(alpha_bar_{τ_i})
             x0_t = (xt - et * (1 - at).sqrt()) / at.sqrt()
             x0_preds.append(x0_t.to('cpu'))
+            # σ_{τ_i}(eta) = eta * sqrt((1 - alpha_bar_{τ_i} / alpha_bar_{τ_{i-1}}) * (1 - alpha_bar_{τ_{i-1}}) / (1 - alpha_bar_{τ_i}))
             c1 = (
                 kwargs.get("eta", 0) * ((1 - at / at_next) * (1 - at_next) / (1 - at)).sqrt()
             )
+            # Eq(12): sqrt(1 - alpha_bar_{τ_{i-1}} - σ_{τ_i}(eta)^2)
             c2 = ((1 - at_next) - c1 ** 2).sqrt()
-            xt_next = at_next.sqrt() * x0_t + c1 * torch.randn_like(x) + c2 * et
+            # x_{τ_{i-1}} = sqrt(alpha_bar_{τ_{i-1}}) * x0' + c2 * e_theta + σ_{τ_i}(eta) * e
+            xt_next = at_next.sqrt() * x0_t + c2 * et + c1 * torch.randn_like(x)
             xs.append(xt_next.to('cpu'))
     return xs, x0_preds
 
@@ -81,10 +88,11 @@ def ddpm_steps(x, seq, model, a, **kwargs):
 
             output = model(x, emb)
             e = output
-
+            # x0' = (x_t - sqrt(1 - alpha_bar_t) * e_theta) / sqrt(alpha_bar_t)
             x0_from_e = (1.0 / at).sqrt() * x - (1.0 / at - 1).sqrt() * e
             x0_from_e = torch.clamp(x0_from_e, -1, 1)
             x0_preds.append(x0_from_e.to('cpu'))
+            # Eq(6), miu_t = [sqrt(alpha_bar_{t-1}) * beta_t * x0 + sqrt(alpha_t) * (1 - alpha_bar_{t-1}) * xt] / (1 - alpha_bar_t)
             mean_eps = (
                 (at_next.sqrt() * beta_t) * x0_from_e + ((1 - beta_t).sqrt() * (1 - at_next)) * x
             ) / (1.0 - at)
@@ -94,6 +102,7 @@ def ddpm_steps(x, seq, model, a, **kwargs):
             mask = 1 - (emb == 0).float()
             mask = mask.view(-1, 1, 1, 1)
             logvar = beta_t.log()
+            # x_{t-1} = miu_t + sqrt(beta_t) * e
             sample = mean + mask * torch.exp(0.5 * logvar) * noise
             xs.append(sample.to('cpu'))
     return xs, x0_preds

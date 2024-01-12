@@ -23,6 +23,7 @@ def get_timestep_embedding(timesteps, embedding_dim):
         emb = torch.nn.functional.pad(emb, (0, 1, 0, 0))
     return emb
 
+
 def sinusoidal_embedding(timesteps, embedding_dim):
     assert len(timesteps.shape) == 1
     embedding_min_frequency = 1.0
@@ -55,12 +56,12 @@ def zero_module(module):
 
 def nonlinearity(x):
     # swish
-    return x*torch.sigmoid(x)
+    return x * torch.sigmoid(x)
 
 
 def Normalize(in_channels, use_bn=False):
     if use_bn:
-        return torch.nn.BatchNorm2d(num_features=in_channels, affine=True)
+        return torch.nn.BatchNorm2d(num_features=in_channels, affine=False)
     else:
         return torch.nn.GroupNorm(num_groups=32, num_channels=in_channels, eps=1e-6, affine=True)
 
@@ -78,7 +79,7 @@ class Upsample(nn.Module):
 
     def forward(self, x):
         x = torch.nn.functional.interpolate(
-            x, scale_factor=2.0, mode="nearest") # !!!note that can not be bilinear
+            x, scale_factor=2.0, mode="nearest")  # !!!note that can not be bilinear
         if self.with_conv:
             x = self.conv(x)
         return x
@@ -126,7 +127,7 @@ class ResnetBlock(nn.Module):
         # update
         if temb_channels is not None:
             self.temb_proj = torch.nn.Linear(temb_channels,
-                                            out_channels)
+                                             out_channels)
             self.norm2 = Normalize(out_channels)
         self.dropout = torch.nn.Dropout(dropout)
 
@@ -135,6 +136,7 @@ class ResnetBlock(nn.Module):
                                      kernel_size=3,
                                      stride=1,
                                      padding=1)
+        # print(self.in_channels, self.out_channels)
         if self.in_channels != self.out_channels:
             if self.use_conv_shortcut:
                 self.conv_shortcut = torch.nn.Conv2d(in_channels,
@@ -174,7 +176,7 @@ class ResnetBlock(nn.Module):
             else:
                 x = self.nin_shortcut(x)
 
-        return x+h
+        return x + h
 
 
 class AttnBlock(nn.Module):
@@ -213,23 +215,24 @@ class AttnBlock(nn.Module):
 
         # compute attention
         b, c, h, w = q.shape
-        q = q.reshape(b, c, h*w)
-        q = q.permute(0, 2, 1)   # b,hw,c
-        k = k.reshape(b, c, h*w)  # b,c,hw
-        w_ = torch.bmm(q, k)     # b,hw,hw    w[b,i,j]=sum_c q[b,i,c]k[b,c,j]
-        w_ = w_ * (int(c)**(-0.5))
+        q = q.reshape(b, c, h * w)
+        q = q.permute(0, 2, 1)  # b,hw,c
+        k = k.reshape(b, c, h * w)  # b,c,hw
+        w_ = torch.bmm(q, k)  # b,hw,hw    w[b,i,j]=sum_c q[b,i,c]k[b,c,j]
+        w_ = w_ * (int(c) ** (-0.5))
         w_ = torch.nn.functional.softmax(w_, dim=2)
 
         # attend to values
-        v = v.reshape(b, c, h*w)
-        w_ = w_.permute(0, 2, 1)   # b,hw,hw (first hw of k, second of q)
+        v = v.reshape(b, c, h * w)
+        w_ = w_.permute(0, 2, 1)  # b,hw,hw (first hw of k, second of q)
         # b, c,hw (hw of q) h_[b,c,j] = sum_i v[b,c,i] w_[b,i,j]
         h_ = torch.bmm(v, w_)
         h_ = h_.reshape(b, c, h, w)
 
         h_ = self.proj_out(h_)
 
-        return x+h_
+        return x + h_
+
 
 class Model(nn.Module):
     def __init__(self, config):
@@ -248,13 +251,13 @@ class Model(nn.Module):
         use_attn = config.model.use_attn
         # whether propogate temb only once
         input_emb_once = config.model.input_emb_once
-        
+
         if config.model.type == 'bayesian':
             self.logvar = nn.Parameter(torch.zeros(num_timesteps))
-        
+
         self.ch = ch
         # update
-        self.temb_ch = None if input_emb_once else self.ch*4
+        self.temb_ch = None if input_emb_once else self.ch * 4
 
         self.num_resolutions = len(ch_mult)
         self.num_res_blocks = num_res_blocks
@@ -279,20 +282,20 @@ class Model(nn.Module):
         # downsampling
         self.conv_in = torch.nn.Conv2d(in_channels,
                                        self.ch,
-                                       kernel_size=3, # keras 1, ddim 3
+                                       kernel_size=3,  # keras 1, ddim 3
                                        stride=1,
-                                       padding=1) # keras 0, ddim 1
+                                       padding=1)  # keras 0, ddim 1
 
         curr_res = resolution
         # embedding dim = self.ch
-        in_ch_mult = (1 if not input_emb_once else 2,)+ch_mult
+        in_ch_mult = (1 if not input_emb_once else 2,) + ch_mult
         self.down = nn.ModuleList()
         block_in = None
         for i_level in range(self.num_resolutions):
             block = nn.ModuleList()
             attn = nn.ModuleList()
-            block_in = ch*in_ch_mult[i_level]
-            block_out = ch*ch_mult[i_level]
+            block_in = ch * in_ch_mult[i_level]
+            block_out = ch * ch_mult[i_level]
             for i_block in range(self.num_res_blocks):
                 block.append(ResnetBlock(in_channels=block_in,
                                          out_channels=block_out,
@@ -305,7 +308,7 @@ class Model(nn.Module):
             down = nn.Module()
             down.block = block
             down.attn = attn
-            if i_level != self.num_resolutions-1:
+            if i_level != self.num_resolutions - 1:
                 down.downsample = Downsample(block_in, resamp_with_conv)
                 curr_res = curr_res // 2
             self.down.append(down)
@@ -330,12 +333,12 @@ class Model(nn.Module):
         for i_level in reversed(range(self.num_resolutions)):
             block = nn.ModuleList()
             attn = nn.ModuleList()
-            block_out = ch*ch_mult[i_level]
-            skip_in = ch*ch_mult[i_level]
-            for i_block in range(self.num_res_blocks+1):
+            block_out = ch * ch_mult[i_level]
+            skip_in = ch * ch_mult[i_level]
+            for i_block in range(self.num_res_blocks + 1):
                 if i_block == self.num_res_blocks:
-                    skip_in = ch*in_ch_mult[i_level]
-                block.append(ResnetBlock(in_channels=block_in+skip_in,
+                    skip_in = ch * in_ch_mult[i_level]
+                block.append(ResnetBlock(in_channels=block_in + skip_in,
                                          out_channels=block_out,
                                          temb_channels=self.temb_ch,
                                          dropout=dropout,
@@ -352,7 +355,7 @@ class Model(nn.Module):
             self.up.insert(0, up)  # prepend to get consistent order
 
         # end
-        self.norm_out = Normalize(block_in) # keras no norm_out ddim has
+        self.norm_out = Normalize(block_in)  # keras no norm_out ddim has
         self.conv_out = torch.nn.Conv2d(block_in,
                                         out_ch,
                                         kernel_size=3,
@@ -368,7 +371,7 @@ class Model(nn.Module):
         x = self.conv_in(x)
 
         # timestep embedding with shape e.g.[2 32]
-        # TODO isolate embedding strategy to support both time and noise 
+        # TODO isolate embedding strategy to support both time and noise
         temb = get_timestep_embedding(t, self.ch)  # keras sinuous_embedding
         if self.temb_ch is not None:
             temb = self.temb.dense[0](temb)
@@ -387,7 +390,7 @@ class Model(nn.Module):
                 if len(self.down[i_level].attn) > 0:
                     h = self.down[i_level].attn[i_block](h)
                 hs.append(h)
-            if i_level != self.num_resolutions-1:
+            if i_level != self.num_resolutions - 1:
                 hs.append(self.down[i_level].downsample(hs[-1]))
 
         # middle
@@ -399,7 +402,7 @@ class Model(nn.Module):
 
         # upsampling
         for i_level in reversed(range(self.num_resolutions)):
-            for i_block in range(self.num_res_blocks+1):
+            for i_block in range(self.num_res_blocks + 1):
                 h = self.up[i_level].block[i_block](
                     torch.cat([h, hs.pop()], dim=1), temb)
                 if len(self.up[i_level].attn) > 0:
@@ -412,13 +415,17 @@ class Model(nn.Module):
         h = nonlinearity(h)  # keras no norm_out ddim has
         h = self.conv_out(h)
         return h
-    
+
+
 if __name__ == "__main__":
     import yaml
     import sys
     import os
     import argparse
+
     sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+
     def dict2namespace(config):
         namespace = argparse.Namespace()
         for key, value in config.items():
@@ -428,6 +435,8 @@ if __name__ == "__main__":
                 new_value = value
             setattr(namespace, key, new_value)
         return namespace
+
+
     # parse config file
     with open("/root/workspace/nano-ddim/configs/oxflower.yml", "r") as f:
         config = yaml.safe_load(f)

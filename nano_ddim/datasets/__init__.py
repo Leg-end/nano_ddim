@@ -149,7 +149,8 @@ def get_dataset(args, config):
         transform = transforms.Compose(
                 [
                     AdaptiveCenterCrop(),
-                    transforms.Resize(config.data.image_size),
+                    transforms.Resize(config.data.image_size,
+                                      antialias=True),
                     transforms.ToTensor(),
                 ],
             )

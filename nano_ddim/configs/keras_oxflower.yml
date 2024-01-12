@@ -17,13 +17,14 @@ model:
     in_channels: 3
     out_channels: [32, 64, 96, 128]
     num_res_blocks: 2
+    attentions: [False, False, True, True]
     var_type: fixedlarge
     ema_rate: 0.999
     ema: True
     resamp_with_conv: False
-    use_bn: True
+    use_bn: False
     use_attn: False
-    input_emb_once: True
+    input_emb_once: False
     emb_type: "noise"
     embedding_dims: 32
 
@@ -38,7 +39,7 @@ diffusion:
 training:
     loss_type: mae
     batch_size: 64
-    n_epochs: 80
+    n_epochs: 50
     n_iters: 5000000
     snapshot_freq: 3000
     validation_freq: 2000

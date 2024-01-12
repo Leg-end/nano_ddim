@@ -8,6 +8,7 @@ import tqdm
 import torch
 import torch.utils.data as data
 
+# from torchmetrics.image.kid import KernelInceptionDistance
 # from models.diffusion import Model
 from models.keras_diffusion import Model
 from models.ema import EMAHelper
@@ -39,6 +40,7 @@ class Diffusion(object):
             )
         self.device = device
         self.num_timesteps = config.diffusion.num_diffusion_timesteps
+
         if config.diffusion.beta_schedule == "cosine":
             self.alphas_cumprod = torch.from_numpy(
                 np.array([config.diffusion.alpha_bar_start,
@@ -60,7 +62,7 @@ class Diffusion(object):
                 [torch.ones(1).to(device), alphas_cumprod[:-1]], dim=0
             )
             posterior_variance = (
-                betas * (1.0 - alphas_cumprod_prev) / (1.0 - alphas_cumprod)
+                    betas * (1.0 - alphas_cumprod_prev) / (1.0 - alphas_cumprod)
             )
             if self.model_var_type == "fixedlarge":
                 self.logvar = betas.log()
@@ -68,18 +70,17 @@ class Diffusion(object):
                 # [posterior_variance[1:2], betas[1:]], dim=0).log()
             elif self.model_var_type == "fixedsmall":
                 self.logvar = posterior_variance.clamp(min=1e-20).log()
-    
+
     def diffusion_times(self, n):
         # antithetic sampling
-        if self.config.diffusion.beta_schedule != "cosine": # discrete
+        if self.config.diffusion.beta_schedule != "cosine":  # discrete
             t = torch.randint(
                 low=0, high=self.num_timesteps, size=(n // 2 + 1,)
             )
             t = torch.cat([t, self.num_timesteps - t - 1], dim=0)[:n]
-        else: # continuous, time step between 0 and 1
+        else:  # continuous, time step between 0 and 1
             t = torch.rand(n)
         return t.to(self.device)
-
 
     def train(self):
         args, config = self.args, self.config
@@ -94,6 +95,10 @@ class Diffusion(object):
         model = Model(config)
 
         model = model.to(self.device)
+        tb_logger.add_graph(model, (torch.zeros(
+            (config.training.batch_size, config.data.channels,
+             config.data.image_size, config.data.image_size),
+            torch.zeros(config.training.batch_size))))
 
         optimizer = get_optimizer(self.config, model.parameters())
 
@@ -132,21 +137,21 @@ class Diffusion(object):
                 model.train()
                 step += 1
 
-                x = x.to(self.device)
+                x = x.to(self.device)  # x0 ~ q(x0)
                 x = data_transform(self.config, x)
-                e = torch.randn_like(x)
+                e = torch.randn_like(x)  # e ~ N(0, I)
                 t = self.diffusion_times(n)
-                a = get_alpha_bar(
+                a = get_alpha_bar(  # alpha_bar_t
                     t, self.alphas_cumprod, config.diffusion.beta_schedule)
 
                 n_loss, i_loss = loss_registry[config.model.type](model, x, t, e, a,
-                                                        loss_type=config.training.loss_type)
+                                                                  loss_type=config.training.loss_type)
 
                 tb_logger.add_scalar("noise_loss", n_loss, global_step=step)
                 tb_logger.add_scalar("image_loss", i_loss, global_step=step)
                 logging.info(
                     "epoch: {}, step: {}, n_loss: {}, i_loss: {}, {:.1f}ms, {:.1f}ms/step".format(
-                        epoch+1,
+                        epoch + 1,
                         step,
                         n_loss.item(),
                         i_loss.item(),
@@ -258,7 +263,7 @@ class Diffusion(object):
 
         with torch.no_grad():
             for _ in tqdm.tqdm(
-                range(n_rounds), desc="Generating image samples for FID evaluation."
+                    range(n_rounds), desc="Generating image samples for FID evaluation."
             ):
                 n = config.sampling.batch_size
                 x = torch.randn(
@@ -277,7 +282,7 @@ class Diffusion(object):
                         x[i], os.path.join(self.args.image_folder, f"{img_id}.png")
                     )
                     img_id += 1
-    
+
     def sample_once(self, model, epoch=None, plot_image_size=128):
         config = self.config
         img_id = len(glob.glob(f"{self.args.image_folder}/*"))
@@ -339,8 +344,8 @@ class Diffusion(object):
         def slerp(z1, z2, alpha):
             theta = torch.acos(torch.sum(z1 * z2) / (torch.norm(z1) * torch.norm(z2)))
             return (
-                torch.sin((1 - alpha) * theta) / torch.sin(theta) * z1
-                + torch.sin(alpha * theta) / torch.sin(theta) * z2
+                    torch.sin((1 - alpha) * theta) / torch.sin(theta) * z1
+                    + torch.sin(alpha * theta) / torch.sin(theta) * z2
             )
 
         z1 = torch.randn(
@@ -368,7 +373,7 @@ class Diffusion(object):
         # Hard coded here, modify to your preferences
         with torch.no_grad():
             for i in range(0, x.size(0), 8):
-                xs.append(self.sample_image(x[i : i + 8], model))
+                xs.append(self.sample_image(x[i: i + 8], model))
         x = inverse_data_transform(config, torch.cat(xs, dim=0))
         for i in range(x.size(0)):
             tvu.save_image(x[i], os.path.join(self.args.image_folder, f"{i}.png"))
@@ -378,29 +383,29 @@ class Diffusion(object):
             skip = self.args.skip
         except Exception:
             skip = 1  # sampling cross step
-        
+
         if self.args.skip_type == "uniform":
             skip = self.num_timesteps // self.args.timesteps
             seq = np.linspace(
-                0, self.num_timesteps-skip, self.args.timesteps)
+                0, self.num_timesteps - skip, self.args.timesteps)
         elif self.args.skip_type == "quad":
             seq = (
-                np.linspace(
-                    0, np.sqrt(self.num_timesteps * 0.8), self.args.timesteps
-                )
-                ** 2
+                    np.linspace(
+                        0, np.sqrt(self.num_timesteps * 0.8), self.args.timesteps
+                    ) ** 2
             )
         else:
             raise NotImplementedError
         if self.config.model.emb_type == "noise":
             seq = seq / self.num_timesteps
             seq = seq + 1.0 - seq[-1]
+        # seq=[τ_1, ..., τ_s], a = [alpha_bar_{τ_1}, ..., alpha_bar_{τ_s}]
         a = get_alpha_bar(
-                seq, self.alphas_cumprod, self.config.diffusion.beta_schedule)
+            seq, self.alphas_cumprod, self.config.diffusion.beta_schedule)
         if self.args.sample_type == "generalized":
             from functions.denoising import generalized_steps
 
-            xs = generalized_steps(x, seq, model, a, 
+            xs = generalized_steps(x, seq, model, a,
                                    eta=self.args.eta,
                                    emb_type=self.config.model.emb_type)
             x = xs
@@ -435,15 +440,15 @@ class Diffusion(object):
             tvu.save_image(
                 x, os.path.join(args.image_folder, f"{i}.png")
             )
-    
+
     def test_schedule(self):
         args, config = self.args, self.config
         # t = self.diffusion_times(2)
         # print(t)
         t = torch.as_tensor([0.5176873, 0.39660096], dtype=torch.float32).to(self.device)
         a = get_alpha_bar(
-                    t, self.alphas_cumprod, config.diffusion.beta_schedule)
-        print(a.sqrt()) # expect around [0.57680005, 0.69191194]
+            t, self.alphas_cumprod, config.diffusion.beta_schedule)
+        print(a.sqrt())  # expect around [0.57680005, 0.69191194]
 
     def test_seq_schedule(self):
         args, config = self.args, self.config
@@ -451,17 +456,17 @@ class Diffusion(object):
             skip = self.args.skip
         except Exception:
             skip = 1  # sampling cross step
-        
+
         if self.args.skip_type == "uniform":
             skip = self.num_timesteps // self.args.timesteps
             seq = np.linspace(
                 0, self.num_timesteps - skip, self.args.timesteps)
         elif self.args.skip_type == "quad":
             seq = (
-                np.linspace(
-                    0, np.sqrt(self.num_timesteps * 0.8), self.args.timesteps
-                )
-                ** 2
+                    np.linspace(
+                        0, np.sqrt(self.num_timesteps * 0.8), self.args.timesteps
+                    )
+                    ** 2
             )
         else:
             raise NotImplementedError
@@ -474,9 +479,9 @@ class Diffusion(object):
         seq = seq / step_range
         print(seq, seq.shape)
         a = get_alpha_bar(
-                seq + step_size, self.alphas_cumprod, self.config.diffusion.beta_schedule)
+            seq + step_size, self.alphas_cumprod, self.config.diffusion.beta_schedule)
         print(a, a.shape)
-    
+
     def test_model_embedding(self):
         args, config = self.args, self.config
         from models.diffusion import get_timestep_embedding, sinusoidal_embedding
@@ -485,10 +490,10 @@ class Diffusion(object):
         print(t, t.shape)
         temb = get_timestep_embedding(t, config.model.ch)
         a = get_alpha_bar(
-                    t, self.alphas_cumprod, config.diffusion.beta_schedule)
+            t, self.alphas_cumprod, config.diffusion.beta_schedule)
         print("diffusion_schedule============================>")
         print(a.sqrt(), a.shape)
-        nemb = sinusoidal_embedding(1-a, config.model.ch)
+        nemb = sinusoidal_embedding(1 - a, config.model.ch)
         print("time_embedding============================>")
         print(temb, temb.shape)
         print("noise_embedding============================>")
@@ -516,7 +521,7 @@ class Diffusion(object):
         args, config = self.args, self.config
         t = torch.as_tensor([0.14723265, 0.02082253], dtype=torch.float32).to(self.device)
         a = get_alpha_bar(
-                    t, self.alphas_cumprod, config.diffusion.beta_schedule)
+            t, self.alphas_cumprod, config.diffusion.beta_schedule)
         model = Model(self.config)
         model.to(self.device)
         model.eval
